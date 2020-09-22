@@ -10,13 +10,22 @@ from importlib import import_module
 from os import environ
 from six import text_type
 import logging
-
+import cbor2
+import hashlib
 from .provider.base import BaseProvider
 from .provider.plan import Plan
 from .provider.yaml import SplitYamlProvider, YamlProvider
 from .record import Record
 from .yaml import safe_load
 from .zone import Zone
+
+
+def short_sha(data):
+    return hashlib.sha1(data).hexdigest()[:7]
+
+
+def checksum(obj):
+    return short_sha(cbor2.dumps(obj))
 
 
 class _AggregateTarget(object):
@@ -256,7 +265,7 @@ class Manager(object):
         return plans
 
     def sync(self, eligible_zones=[], eligible_sources=[], eligible_targets=[],
-             dry_run=True, force=False):
+             dry_run=True, force=False, plan_checksum=None):
         self.log.info('sync: eligible_zones=%s, eligible_targets=%s, '
                       'dry_run=%s, force=%s', eligible_zones, eligible_targets,
                       dry_run, force)
@@ -346,8 +355,19 @@ class Manager(object):
             for target, plan in plans:
                 plan.raise_if_unsafe()
 
+        plans_data = []
+        for target, plan in plans:
+            plans_data.append(plan.to_data())
+        calculated_checksum = checksum(plans_data)
+
         if dry_run:
+            print("Plan Checksum: " + calculated_checksum)
             return 0
+
+        if plan_checksum:
+            if plan_checksum != calculated_checksum:
+                print("Plan checksum did not match")
+                exit(1)
 
         total_changes = 0
         self.log.debug('sync:   applying')

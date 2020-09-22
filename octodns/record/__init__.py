@@ -42,6 +42,9 @@ class Create(Change):
         source = self.new.source.id if self.new.source else ''
         return 'Create {} ({})'.format(self.new, source)
 
+    def to_data(self):
+        return {'Create': str(self.new)}
+
 
 class Update(Change):
 
@@ -55,6 +58,12 @@ class Update(Change):
             .format(existing=self.existing, new=self.new, leader=leader,
                     src=source)
 
+    def to_data(self):
+        return {
+            "from": str(self.existing),
+            "to": str(self.new)
+        }
+
 
 class Delete(Change):
 
@@ -63,6 +72,9 @@ class Delete(Change):
 
     def __repr__(self, leader=''):
         return 'Delete {}'.format(self.existing)
+
+    def to_data(self):
+        return {'Delete': str(self.existing)}
 
 
 class ValidationError(Exception):

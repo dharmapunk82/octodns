@@ -15,9 +15,15 @@ def main():
 
     parser.add_argument('--config-file', required=True,
                         help='The Manager configuration file to use')
+
     parser.add_argument('--doit', action='store_true', default=False,
                         help='Whether to take action or just show what would '
                         'change')
+
+    parser.add_argument('--plan-checksum', default=None,
+                        help='The checksum of the plan, if it does not match '
+                        'we will not apply')
+
     parser.add_argument('--force', action='store_true', default=False,
                         help='Acknowledge that significant changes are being '
                         'made and do them')
@@ -29,6 +35,7 @@ def main():
                         help='Limit sync to zones with the specified '
                         'source(s) (all sources will be synchronized for the '
                         'selected zones)')
+
     parser.add_argument('--target', default=[], action='append',
                         help='Limit sync to the specified target(s)')
 
@@ -37,7 +44,7 @@ def main():
     manager = Manager(args.config_file)
     manager.sync(eligible_zones=args.zone, eligible_sources=args.source,
                  eligible_targets=args.target, dry_run=not args.doit,
-                 force=args.force)
+                 force=args.force, plan_checksum=args.plan_checksum)
 
 
 if __name__ == '__main__':

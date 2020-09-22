@@ -80,6 +80,9 @@ class Plan(object):
                                      self.change_counts['Delete'],
                                      existing_record_count))
 
+    def to_data(self):
+        return [change.to_data() for change in self.changes]
+
     def __repr__(self):
         return 'Creates={}, Updates={}, Deletes={}, Existing Records={}' \
             .format(self.change_counts['Create'], self.change_counts['Update'],
