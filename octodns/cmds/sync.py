@@ -15,12 +15,20 @@ def main():
         required=True,
         help='The Manager configuration file to use',
     )
+
     parser.add_argument(
         '--doit',
         action='store_true',
         default=False,
         help='Whether to take action or just show what would change',
     )
+
+    parser.add_argument(
+        '--plan-checksum', 
+        default=None,
+        help='The checksum of the plan, if it does not match '
+        'we will not apply')
+
     parser.add_argument(
         '--force',
         action='store_true',
@@ -44,6 +52,7 @@ def main():
         'source(s) (all sources will be synchronized for the '
         'selected zones)',
     )
+
     parser.add_argument(
         '--target',
         default=[],
@@ -60,6 +69,7 @@ def main():
         eligible_targets=args.target,
         dry_run=not args.doit,
         force=args.force,
+        plan_checksum=args.plan_checksum
     )
 
 
