@@ -461,17 +461,16 @@ class Manager(object):
         return plans, zone
 
     def sync(
-        self, 
-        eligible_zones=[], 
-        eligible_sources=[], 
+        self,
+        eligible_zones=[],
+        eligible_sources=[],
         eligible_targets=[],
-        dry_run=True, 
-        force=False, 
-        plan_checksum=None):
-        self.log.info('sync: eligible_zones=%s, eligible_targets=%s, '
-                      'dry_run=%s, force=%s', eligible_zones, eligible_targets,
-                      dry_run, force)
-    
+        dry_run=True,
+        force=False,
+        plan_checksum=None,
+        plan_output_fh=stdout,    
+    ):
+
         self.log.info(
             'sync: eligible_zones=%s, eligible_targets=%s, dry_run=%s, '
             'force=%s, plan_output_fh=%s',
