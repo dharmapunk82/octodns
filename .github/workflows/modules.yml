@@ -1,0 +1,54 @@
+name: OctoDNS Modules
+on:
+  workflow_dispatch: # option to run manually if/when needed
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - asyncon/octoblox
+          - octodns/octodns-azure
+          - octodns/octodns-bind
+          - octodns/octodns-cloudflare
+          - octodns/octodns-constellix
+          - octodns/octodns-ddns
+          - octodns/octodns-digitalocean
+          - octodns/octodns-dnsimple
+          - octodns/octodns-dnsmadeeasy
+          - octodns/octodns-dyn
+          - octodns/octodns-easydns
+          - octodns/octodns-edgedns
+          - octodns/octodns-etchosts
+          - octodns/octodns-gandi
+          - octodns/octodns-gcore
+          - octodns/octodns-googlecloud
+          - octodns/octodns-hetzner
+          - octodns/octodns-mythicbeasts
+          - octodns/octodns-ns1
+          - octodns/octodns-ovh
+          - octodns/octodns-powerdns
+          - octodns/octodns-rackspace
+          - octodns/octodns-route53
+          - octodns/octodns-selectel
+          - octodns/octodns-transip
+          - octodns/octodns-ultra
+          - sukiyaki/octodns-netbox
+    steps:
+      - uses: actions/checkout@master
+      - name: Setup python
+        uses: actions/setup-python@v1
+        with:
+          # This should generally be the latest stable release of python, but
+          # dyn and ovh don't currently support changes made in 3.10 so we'll
+          # leave it 3.9 for now. Once 3.11 lands though we'll bump to it and
+          # if they haven't updated they'll be removed from the matrix
+          python-version: '3.9'
+          architecture: x64
+      - name: Test Module
+        run: |
+          ./script/test-module ${{ matrix.module }}

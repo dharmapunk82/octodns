@@ -4,11 +4,11 @@ Hi there! We're thrilled that you'd like to contribute to OctoDNS. Your help is 
 
 Please note that this project adheres to the [Contributor Covenant Code of Conduct](/CODE_OF_CONDUCT.md). By participating in this project you agree to abide by its terms.
 
-If you have questions, or you'd like to check with us before embarking on a major development effort, please [open an issue](https://github.com/github/octodns/issues/new).
+If you have questions, or you'd like to check with us before embarking on a major development effort, please [open an issue](https://github.com/octodns/octodns/issues/new).
 
 ## How to contribute
 
-This project uses the [GitHub Flow](https://guides.github.com/introduction/flow/). That means that the `master` branch is stable and new development is done in feature branches. Feature branches are merged into the `master` branch via a Pull Request.
+This project uses the [GitHub Flow](https://guides.github.com/introduction/flow/). That means that the `main` branch is stable and new development is done in feature branches. Feature branches are merged into the `main` branch via a Pull Request.
 
 0. Fork and clone the repository
 0. Configure and install the dependencies: `./script/bootstrap`
@@ -35,14 +35,14 @@ Here are a few things you can do that will increase the likelihood of your pull 
 
 - Keep your change as focused as possible. If there are multiple changes you would like to make that are not dependent upon each other, consider submitting them as separate pull requests.
 
-- We target Python 2.7, but have taken steps to make Python 3 support as easy as possible when someone decides it's needed. PR welcome.
+- We target Python 3, support for Python 2 has been dropped.
 
 - Write a [good commit message](http://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html).
 
 ## Development setup
 
 ```
-./scipt/bootstrap
+./script/bootstrap
 source env/bin/activate
 ```
 

@@ -1,6 +1,322 @@
-## v0.9.11 - 2020-??-?? - ???????????????
+## v1.0.0.rc0 - 2022-??-?? - First of the ones
 
-* Added support for TCP health checking to dynamic records
+#### Noteworthy changes
+
+* 1.x Deprecation removals
+   * Provider, Source, and Processor shims removed, they've been warnings for >
+     1yr.  Everything should be using and referring to provider-specific
+     modules now.
+   * Provider.strict_supports defaults to true, can be returned to the old
+     behavior by setting strict_supports=False in your provider params.
+* octodns.record has been broken up into multiple files/modules. Most of the
+  primary things that were available at that module path still will be, but if
+  you are importing things like idna_encode/decode that actually live elsewhere
+  from octodns.record you'll need to update and pull them from their actual
+  home. Classes beginning with _ are not exported from octodns.record any
+  longer as they were considered private/protected.
+
+#### Stuff
+
+* Added new DsRecord type (provider support will be added over time)
+* Added simple IgnoreRootNsFilter
+* Minor refactor on YamlProvider to add get_filenames making it a bit easier to
+  create specialized providers inheriting from it
+
+## v0.9.21 - 2022-10-16 - Last of the oughts
+
+* Shim AxfrSource and ZoneFileSource post extraction into
+  https://github.com/octodns/octodns-bind
+
+## v0.9.20 - 2022-10-05 - International friendly
+
+#### Noteworthy changes
+
+* Added support for automatic handling of IDNA (utf-8) zones. Everything is
+  stored IDNA encoded internally. For ASCII zones that's a noop. For zones with
+  utf-8 chars they will be converted and all internals/providers will see the
+  encoded version and work with it without any knowledge of it having been
+  converted. This means that all providers will automatically support IDNA as of
+  this version. IDNA zones will generally be displayed in the logs in their
+  decoded form. Both forms should be accepted in command line arguments.
+  Providers may need to be updated to display the decoded form in their logs,
+  until then they'd display the IDNA version.
+* IDNA value support for Record types that hold FQDNs: ALIAS, CNAME, DNAME, PTR,
+  MX, NS, and SRV.
+* Support for configuring global processors that apply to all zones with
+  `manager.processors`
+
+#### Stuff
+
+* Addressed shortcomings with YamlProvider.SUPPORTS in that it didn't include
+  dynamically registered types, was a static list that could have drifted over
+  time even ignoring 3rd party types.
+* Provider._process_desired_zone needed to call Provider.supports rather than
+  doing it's own `_type in provider.SUPPORTS`. The default behavior in
+  Source.supports is ^, but it's possible for providers to override that
+  behavior and do special checking and `_process_desired_zone` wasn't taking
+  that into account.
+* Now that it's used as it needed to be YamlProvider overrides
+  Provider.supports and just always says Yes so that any dynamically registered
+  types will be supported.
+* Add TtlRestrictionFilter processor for adding ttl restriction/checking
+* NameAllowlistFilter & NameRejectlistFilter implementations to support
+  filtering on record names to include/exclude records from management.
+* All Record values are now first class objects. This shouldn't be an externally
+  visible change, but will enable future improvements.
+* --quiet command line option added to raise log level to WARNING, plan
+  output now comes from `plan` logger rather than `Manager` so that it can stay
+  at info
+* --logging-config command line option added to allow complete logging config
+  customization, see
+  https://docs.python.org/3/library/logging.config.html#logging-config-dictschema
+  for file format and
+  https://github.com/octodns/octodns/pull/945#issuecomment-1262839550 for an
+  example config
+
+## v0.9.19 - 2022-08-14 - Subzone handling
+
+* Fixed issue with sub-zone handling introduced in 0.9.18
+
+## v0.9.18 - 2022-08-09 - Internationalization
+
+* Added octodns.idna idna_encode/idna_decode helpers, providers will need to
+  individually add support via these helpers though :-/
+* `black` formatting implemented (including .git-blame-ignore-revs)
+* --output-provider support for dump to allow configurable dump
+  formatting/details
+* TLSA record type support
+* Subzones support for skipping levels
+
+## v0.9.17 - 2022-04-02 - Registration required
+
+#### Noteworthy changes
+
+* The changes in plans are now ordered based on change type prior to
+  considering the record name and type as was previously done. The chosen
+  order is: deletes, creates, updates. The reason for that many providers make
+  changes one at a time. When changing the type of a record, e.g. from A to
+  CNAME of vice versa this is done by deleting the old and creating the new.
+  If the CNAME create happens before the A delete it will often violate
+  rules against having typed records live at the same node as a CNAME. Several
+  providers have always handled this by sorting the changes themselves. This
+  just standardizes what they are doing as many other providers appear to need
+  to do so, but weren't. There was an ordering before, but it was essentially
+  arbitrarily picked.
+* Record.register_type added so that providers can register custom record
+  types, see [docs/records.md](docs/records.md) for more information
+* New `octodns-versions` command which will log out the version of octodns and
+  any provider/processor/plan_output modules you are using.
+
+#### Stuff
+
+* Manager includes the octoDNS version in its init log line
+* Non-official release installs will now include a bit of the sha to indicate
+  specifically what revision is being used, e.g. 0.9.17+abcdef12, these roughly
+  follow PEP440 guidelines
+
+## v0.9.16 - 2022-03-04 - Manage the root of the problem
+
+#### Noteworthy changes
+
+* Foundational support for root NS record management.
+   * YamlProvider has it enabled and in general everyone should add root NS
+     records that match what is in their provider(s) as of this release if they
+     aren't already there.
+   * Other providers will add root NS support over time following this release
+     once they have had the chance to investigate the functionality and
+     implement management if possible with whatever accomidations are required.
+   * Watch your providers README.md and CHANGELOG.md for support and more
+     information.
+   * Root NS record changes will always require `--force` indicating that they
+     are impactful changes that need a careful :eyes:
+
+#### Stuff
+
+* _AggregateTarget has more complete handling of SUPPORTS* functionality,
+  mostly applicable for the compare operation.
+* Fix null MX record validation error introduced in 0.9.15, `.` is again
+  allowed as a valid `exchange` value.
+
+## v0.9.15 - 2022-02-07 - Where have all the providers gone?
+
+#### Noteworthy changes
+
+* Providers extracted from octoDNS core into individual repos
+  https://github.com/octodns/octodns/issues/622 &
+  https://github.com/octodns/octodns/pull/822 for more information.
+   * [AzureProvider](https://github.com/octodns/octodns-azure/)
+   * [AkamaiProvider](https://github.com/octodns/octodns-edgedns/)
+   * [CloudflareProvider](https://github.com/octodns/octodns-cloudflare/)
+   * [ConstellixProvider](https://github.com/octodns/octodns-constellix/)
+   * [DigitalOceanProvider](https://github.com/octodns/octodns-digitalocean/)
+   * [DnsimpleProvider](https://github.com/octodns/octodns-dnsimple/)
+   * [DnsMadeEasyProvider](https://github.com/octodns/octodns-dnsmadeeasy/)
+   * [DynProvider](https://github.com/octodns/octodns-dynprovider/)
+   * [EasyDnsProvider](https://github.com/octodns/octodns-easydns/)
+   * [EtcHostsProvider](https://github.com/octodns/octodns-etchosts/)
+   * [GandiProvider](https://github.com/octodns/octodns-gandi/)
+   * [GcoreProvider](https://github.com/octodns/octodns-gcore/)
+   * [GoogleCloudProvider](https://github.com/octodns/octodns-googlecloud/)
+   * [HetznerProvider](https://github.com/octodns/octodns-hetzner/)
+   * [MythicBeastsProvider](https://github.com/octodns/octodns-mythicbeasts/)
+   * [Ns1Provider](https://github.com/octodns/octodns-ns1/)
+   * [OvhProvider](https://github.com/octodns/octodns-ovh/)
+   * [PowerDnsProvider](https://github.com/octodns/octodns-powerdns/)
+   * [RackspaceProvider](https://github.com/octodns/octodns-rackspace/)
+   * [Route53Provider](https://github.com/octodns/octodns-route53/) also
+     AwsAcmMangingProcessor
+   * [SelectelProvider](https://github.com/octodns/octodns-selectel/)
+   * [TransipProvider](https://github.com/octodns/octodns-transip/)
+   * [UltraDnsProvider](https://github.com/octodns/octodns-ultradns/)
+* As part of the extraction work octoDNS's requirements (setup.py and .txt
+  files) have been updated and minimized and a helper script,
+  script/update-requirements has been added to help manage the txt files going
+  forward.
+
+#### Prior to extraction
+
+* NS1 provider has received improvements to the dynamic record implementation.
+  As a result, if octoDNS is downgraded from this version, any dynamic records
+  created or updated using this version will show an update.
+* An edge-case bug related to geo rules involving continents in NS1 provider
+  has been fixed in this version. However, it will not show/fix the records that
+  match this edge-case. See https://github.com/octodns/octodns/pull/809 for
+  more information. If octoDNS is downgraded from this version, any dynamic
+  records created or updated using this version and matching the said edge-case
+  will not be read/parsed correctly by the older version and will show a diff.
+* Transip was updated to their new client api
+
+#### Stuff
+
+* Additional FQDN validation to ALIAS/CNAME value, MX exchange, SRV target and
+  tests of the functionality.
+* Improvements around dynamic record value weights allowing finer grained
+  control
+
+## v0.9.14 - 2021-10-10 - A new supports system
+
+#### Noteworthy changes
+
+* Provider `strict_supports` param added, currently defaults to `false`, along
+  with Provider._process_desired_zone this forms the foundations of a new
+  "supports" system where providers will warn or error (depending on the value
+  of `strict_supports`) during planning about their inability to do what
+  they're being asked. When `false` they will warn and "adjust" the desired
+  records. When true they will abort with an error indicating the problem. Over
+  time it is expected that all "supports" checking/handling will move into this
+  paradigm and `strict_supports` will likely be changed to default to `true`.
+* Zone shallow copy support, reworking of Processors (alpha) semantics
+* NS1 NA target now includes `SX` and `UM`. If `NA` continent is in use in
+  dynamic records care must be taken to upgrade/downgrade to v0.9.13.
+* Ns1Provider now supports a new parameter, shared_notifylist, which results in
+  all dynamic record monitors using a shared notify list named 'octoDNS NS1
+  Notify List'. Only newly created record values will use the shared notify
+  list. It should be safe to enable this functionality, but existing records
+  will not be converted. Note: Once this option is enabled downgrades to
+  previous versions of octoDNS are discouraged and may result in undefined
+  behavior and broken records. See https://github.com/octodns/octodns/pull/749
+  for related discussion.
+* TransipProvider removed as it currently relies on `suds` which is broken in
+  new python versions and hasn't seen a release since 2010. May return with
+  https://github.com/octodns/octodns/pull/762
+
+#### Stuff
+
+* Fully remove python 2.7 support & sims
+* Dynamic record pool status flag: up/down/obey added w/provider support as
+  possible.
+* Support for multi-value PTRs where providers allow them
+* Normalize IPv6 addresses to avoid false changes and simplify providers
+* Include pure-python wheel distirubtions in release builds
+* Improvements and updates to AzureProvider, especially w/respect to dynamic
+  records.
+* NS1Provider support for IPv6 monitors and general caching/performance
+  improvements
+* Route53Provider.get_zones_by_name option to avoid paging through huge lists
+  and hitting rate limits
+* Misc Route53Provider
+* Ensure no network access during testing (helps with runtime)
+* Sped up the long pole unit tests
+* Misc. ConstellixProvider, DigitalOceanProvider, GCoreProvider, and
+  Route53Provider fixes & improvements
+
+## v0.9.13 - 2021-07-18 - Processors Alpha
+
+#### Noteworthy changes
+
+* Alpha support for Processors has been added. Processors allow for hooking
+  into the source, target, and planing process to make nearly arbitrary changes
+  to data. See the [octodns/processor/](/octodns/processor) directory for
+  examples. The change has been designed to have no impact on the process
+  unless the `processors` key is present in zone configs.
+* Fixes NS1 provider's geotarget limitation of using `NA` continent. Now, when
+  `NA` is used in geos it considers **all** the countries of `North America`
+  instead of just `us-east`, `us-west` and `us-central` regions
+* `SX' &amp; 'UM` country support added to NS1Provider, not yet in the North
+   America list for backwards compatibility reasons. They will be added in the
+   next releaser.
+
+#### Stuff
+
+* Lots of progress on the partial/beta support for dynamic records in Azure,
+  still not production ready.
+* NS1 fix for when a pool only exists as a fallback
+* Zone level lenient flag
+* Validate weight makes sense for pools with a single record
+* UltraDNS support for aliases and general fixes/improvements
+* Misc doc fixes and improvements
+
+## v0.9.12 - 2021-04-30 - Enough time has passed
+
+#### Noteworthy changes
+
+* Formal Python 2.7 support removed, deps and tooling were becoming
+  unmaintainable
+* octodns/octodns move, from github/octodns, more to come
+
+#### Stuff
+
+* ZoneFileSource supports specifying an extension & no files end in . to better
+  support Windows
+* LOC record type support added
+* Support for pre-release versions of PowerDNS
+* PowerDNS delete before create which allows A <-> CNAME etc.
+* Improved validation of fqdn's in ALIAS, CNAME, etc.
+* Transip support for NS records
+* Support for sending plan output to a file
+* DNSimple uses zone api rather than domain to support non-registered stuff,
+  e.g. reverse zones.
+* Support for fallback-only dynamic pools and related fixes to NS1 provider
+* Initial Hetzner provider
+
+## v0.9.11 - 2020-11-05 - We still don't know edition
+
+#### Noteworthy changes
+
+* ALIAS records only allowed at the root of zones - see `leient` in record docs
+  for work-arounds if you really need them.
+
+#### New Providers
+
+* Gandi LiveDNS
+* UltraDNS
+* easyDNS
+
+#### Stuff
+
+* Add support for zones aliases
+* octodns-compare: Prefix filtering and status code on on mismatch
+* Implement octodns-sync --source
+* Adding environment variable record injection
+* Add support for wildcard SRV records, as shown in RFC 2782
+* Add healthcheck option 'request_interval' for Route53 provider
+* NS1 georegion, country, and catchall need to be separate groups
+* Add the ability to mark a zone as lenient
+* Add support for geo-targeting of CA provinces
+* Update geo_data to pick up a couple renames
+* Cloudflare: Add PTR Support, update rate-limit handling and pagination
+* Support PowerDNS 4.3.x
+* Added support for TCP health checking of dynamic records
 
 ## v0.9.10 - 2020-04-20 - Dynamic NS1 and lots of misc
 
@@ -30,7 +346,7 @@
    * Explicit ordering of changes by (name, type) to address inconsistent
      ordering for a number of providers that just convert changes into API
      calls as they come. Python 2 sets ordered consistently, Python 3 they do
-     not. https://github.com/github/octodns/pull/384/commits/7958233fccf9ea22d95e2fd06c48d7d0a4529e26
+     not. https://github.com/octodns/octodns/pull/384/commits/7958233fccf9ea22d95e2fd06c48d7d0a4529e26
    * Route53 `_mod_keyer` ordering wasn't 100% complete and thus unreliable and
      random in Python 3. This has been addressed and may result in value
      reordering on next plan, no actual changes in behavior should occur.
@@ -51,7 +367,7 @@
 
 * AkamaiProvider, ConstellixProvider, MythicBeastsProvider, SelectelProvider,
   &amp; TransipPovider providers added
-* Route53Provider seperator fix
+* Route53Provider separator fix
 * YamlProvider export error around stringification
 * PyPi markdown rendering fix
 
@@ -124,13 +440,13 @@
 
 Using this version on existing records with `geo` will result in
 recreating all health checks. This process has been tested pretty thoroughly to
-try and ensure a seemless upgrade without any traffic shifting around. It's
+try and ensure a seamless upgrade without any traffic shifting around. It's
 probably best to take extra care when updating and to try and make sure that
 all health checks are passing before the first sync with `--doit`. See
-[#67](https://github.com/github/octodns/pull/67) for more information.
+[#67](https://github.com/octodns/octodns/pull/67) for more information.
 
 * Major update to geo healthchecks to allow configuring host (header), path,
-  protocol, and port [#67](https://github.com/github/octodns/pull/67)
+  protocol, and port [#67](https://github.com/octodns/octodns/pull/67)
 * SSHFP algorithm type 4
 * NS1 and DNSimple support skipping unsupported record types
 * Revert back to old style setup.py &amp; requirements.txt, setup.cfg was

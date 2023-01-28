@@ -1,4 +1,3 @@
-from six import text_type
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -8,18 +7,17 @@ from octodns.zone import Zone
 
 
 class TestEnvVarSource(TestCase):
-
     def test_read_variable(self):
         envvar = 'OCTODNS_TEST_ENVIRONMENT_VARIABLE'
         source = EnvVarSource('testid', envvar, 'recordname', ttl=120)
         with self.assertRaises(EnvironmentVariableNotFoundException) as ctx:
             source._read_variable()
-        msg = 'Unknown environment variable {}'.format(envvar)
-        self.assertEquals(msg, text_type(ctx.exception))
+        msg = f'Unknown environment variable {envvar}'
+        self.assertEqual(msg, str(ctx.exception))
 
         with patch.dict('os.environ', {envvar: 'testvalue'}):
             value = source._read_variable()
-        self.assertEquals(value, 'testvalue')
+        self.assertEqual(value, 'testvalue')
 
     def test_populate(self):
         envvar = 'TEST_VAR'
@@ -32,10 +30,10 @@ class TestEnvVarSource(TestCase):
         with patch.dict('os.environ', {envvar: value}):
             source.populate(zone)
 
-        self.assertEquals(1, len(zone.records))
+        self.assertEqual(1, len(zone.records))
         record = list(zone.records)[0]
-        self.assertEquals(name, record.name)
-        self.assertEquals('{}.{}'.format(name, zone_name), record.fqdn)
-        self.assertEquals('TXT', record._type)
-        self.assertEquals(1, len(record.values))
-        self.assertEquals(value, record.values[0])
+        self.assertEqual(name, record.name)
+        self.assertEqual(f'{name}.{zone_name}', record.fqdn)
+        self.assertEqual('TXT', record._type)
+        self.assertEqual(1, len(record.values))
+        self.assertEqual(value, record.values[0])

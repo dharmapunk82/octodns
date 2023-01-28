@@ -2,9 +2,6 @@
 #
 #
 
-from __future__ import absolute_import, division, print_function, \
-    unicode_literals
-
 from collections import defaultdict
 from os import listdir, makedirs
 from os.path import isdir, isfile, join
@@ -13,6 +10,7 @@ import logging
 from ..record import Record
 from ..yaml import safe_load, safe_dump
 from .base import BaseProvider
+from . import ProviderException
 
 
 class YamlProvider(BaseProvider):
@@ -102,24 +100,66 @@ class YamlProvider(BaseProvider):
     `--config-file=internal.yaml`
 
     '''
+
     SUPPORTS_GEO = True
     SUPPORTS_DYNAMIC = True
-    SUPPORTS = set(('A', 'AAAA', 'ALIAS', 'CAA', 'CNAME', 'MX', 'NAPTR', 'NS',
-                    'PTR', 'SSHFP', 'SPF', 'SRV', 'TXT'))
+    SUPPORTS_POOL_VALUE_STATUS = True
+    SUPPORTS_MULTIVALUE_PTR = True
 
-    def __init__(self, id, directory, default_ttl=3600, enforce_order=True,
-                 populate_should_replace=False, *args, **kwargs):
-        self.log = logging.getLogger('{}[{}]'.format(
-            self.__class__.__name__, id))
-        self.log.debug('__init__: id=%s, directory=%s, default_ttl=%d, '
-                       'enforce_order=%d, populate_should_replace=%d',
-                       id, directory, default_ttl, enforce_order,
-                       populate_should_replace)
-        super(YamlProvider, self).__init__(id, *args, **kwargs)
+    def __init__(
+        self,
+        id,
+        directory,
+        default_ttl=3600,
+        enforce_order=True,
+        populate_should_replace=False,
+        supports_root_ns=True,
+        *args,
+        **kwargs,
+    ):
+        klass = self.__class__.__name__
+        self.log = logging.getLogger(f'{klass}[{id}]')
+        self.log.debug(
+            '__init__: id=%s, directory=%s, default_ttl=%d, '
+            'enforce_order=%d, populate_should_replace=%d',
+            id,
+            directory,
+            default_ttl,
+            enforce_order,
+            populate_should_replace,
+        )
+        super().__init__(id, *args, **kwargs)
         self.directory = directory
         self.default_ttl = default_ttl
         self.enforce_order = enforce_order
         self.populate_should_replace = populate_should_replace
+        self.supports_root_ns = supports_root_ns
+
+    def copy(self):
+        args = dict(self.__dict__)
+        args['id'] = f'{args["id"]}-copy'
+        del args['log']
+        return self.__class__(**args)
+
+    @property
+    def SUPPORTS(self):
+        # The yaml provider supports all record types even those defined by 3rd
+        # party modules that we know nothing about, thus we dynamically return
+        # the types list that is registered in Record, everything that's know as
+        # of the point in time we're asked
+        return set(Record.registered_types().keys())
+
+    def supports(self, record):
+        # We're overriding this as a performance tweak, namely to avoid calling
+        # the implementation of the SUPPORTS property to create a set from a
+        # dict_keys every single time something checked whether we support a
+        # record, the answer is always yes so that's overkill and we can just
+        # return True here and be done with it
+        return True
+
+    @property
+    def SUPPORTS_ROOT_NS(self):
+        return self.supports_root_ns
 
     def _populate_from_file(self, filename, zone, lenient):
         with open(filename, 'r') as fh:
@@ -131,16 +171,31 @@ class YamlProvider(BaseProvider):
                     for d in data:
                         if 'ttl' not in d:
                             d['ttl'] = self.default_ttl
-                        record = Record.new(zone, name, d, source=self,
-                                            lenient=lenient)
-                        zone.add_record(record, lenient=lenient,
-                                        replace=self.populate_should_replace)
-            self.log.debug('_populate_from_file: successfully loaded "%s"',
-                           filename)
+                        record = Record.new(
+                            zone, name, d, source=self, lenient=lenient
+                        )
+                        zone.add_record(
+                            record,
+                            lenient=lenient,
+                            replace=self.populate_should_replace,
+                        )
+            self.log.debug(
+                '_populate_from_file: successfully loaded "%s"', filename
+            )
+
+    def get_filenames(self, zone):
+        return (
+            join(self.directory, f'{zone.decoded_name}yaml'),
+            join(self.directory, f'{zone.name}yaml'),
+        )
 
     def populate(self, zone, target=False, lenient=False):
-        self.log.debug('populate: name=%s, target=%s, lenient=%s', zone.name,
-                       target, lenient)
+        self.log.debug(
+            'populate: name=%s, target=%s, lenient=%s',
+            zone.decoded_name,
+            target,
+            lenient,
+        )
 
         if target:
             # When acting as a target we ignore any existing records so that we
@@ -148,18 +203,38 @@ class YamlProvider(BaseProvider):
             return False
 
         before = len(zone.records)
-        filename = join(self.directory, '{}yaml'.format(zone.name))
+        utf8_filename, idna_filename = self.get_filenames(zone)
+
+        # we prefer utf8
+        if isfile(utf8_filename):
+            if utf8_filename != idna_filename and isfile(idna_filename):
+                raise ProviderException(
+                    f'Both UTF-8 "{utf8_filename}" and IDNA "{idna_filename}" exist for {zone.decoded_name}'
+                )
+            filename = utf8_filename
+        else:
+            self.log.warning(
+                'populate: "%s" does not exist, falling back to try idna version "%s"',
+                utf8_filename,
+                idna_filename,
+            )
+            filename = idna_filename
         self._populate_from_file(filename, zone, lenient)
 
-        self.log.info('populate:   found %s records, exists=False',
-                      len(zone.records) - before)
+        self.log.info(
+            'populate:   found %s records, exists=False',
+            len(zone.records) - before,
+        )
         return False
 
     def _apply(self, plan):
         desired = plan.desired
         changes = plan.changes
-        self.log.debug('_apply: zone=%s, len(changes)=%d', desired.name,
-                       len(changes))
+        self.log.debug(
+            '_apply: zone=%s, len(changes)=%d',
+            desired.decoded_name,
+            len(changes),
+        )
         # Since we don't have existing we'll only see creates
         records = [c.new for c in changes]
         # Order things alphabetically (records sort that way
@@ -173,7 +248,8 @@ class YamlProvider(BaseProvider):
                 del d['ttl']
             if record._octodns:
                 d['octodns'] = record._octodns
-            data[record.name].append(d)
+            # we want to output the utf-8 version of the name
+            data[record.decoded_name].append(d)
 
         # Flatten single element lists
         for k in data.keys():
@@ -186,16 +262,16 @@ class YamlProvider(BaseProvider):
         self._do_apply(desired, data)
 
     def _do_apply(self, desired, data):
-        filename = join(self.directory, '{}yaml'.format(desired.name))
+        filename = join(self.directory, f'{desired.decoded_name}yaml')
         self.log.debug('_apply:   writing filename=%s', filename)
         with open(filename, 'w') as fh:
-            safe_dump(dict(data), fh)
+            safe_dump(dict(data), fh, allow_unicode=True)
 
 
 def _list_all_yaml_files(directory):
     yaml_files = set()
     for f in listdir(directory):
-        filename = join(directory, '{}'.format(f))
+        filename = join(directory, f)
         if f.endswith('.yaml') and isfile(filename):
             yaml_files.add(filename)
     return list(yaml_files)
@@ -239,15 +315,21 @@ class SplitYamlProvider(YamlProvider):
     # instead of a file matching the record name.
     CATCHALL_RECORD_NAMES = ('*', '')
 
-    def __init__(self, id, directory, *args, **kwargs):
-        super(SplitYamlProvider, self).__init__(id, directory, *args, **kwargs)
+    def __init__(self, id, directory, extension='.', *args, **kwargs):
+        super().__init__(id, directory, *args, **kwargs)
+        self.extension = extension
 
     def _zone_directory(self, zone):
-        return join(self.directory, zone.name)
+        filename = f'{zone.name[:-1]}{self.extension}'
+        return join(self.directory, filename)
 
     def populate(self, zone, target=False, lenient=False):
-        self.log.debug('populate: name=%s, target=%s, lenient=%s', zone.name,
-                       target, lenient)
+        self.log.debug(
+            'populate: name=%s, target=%s, lenient=%s',
+            zone.name,
+            target,
+            lenient,
+        )
 
         if target:
             # When acting as a target we ignore any existing records so that we
@@ -260,8 +342,10 @@ class SplitYamlProvider(YamlProvider):
         for yaml_filename in yaml_filenames:
             self._populate_from_file(yaml_filename, zone, lenient)
 
-        self.log.info('populate:   found %s records, exists=False',
-                      len(zone.records) - before)
+        self.log.info(
+            'populate:   found %s records, exists=False',
+            len(zone.records) - before,
+        )
         return False
 
     def _do_apply(self, desired, data):
@@ -274,7 +358,7 @@ class SplitYamlProvider(YamlProvider):
             if record in self.CATCHALL_RECORD_NAMES:
                 catchall[record] = config
                 continue
-            filename = join(zone_dir, '{}.yaml'.format(record))
+            filename = join(zone_dir, f'{record}.yaml')
             self.log.debug('_apply:   writing filename=%s', filename)
             with open(filename, 'w') as fh:
                 record_data = {record: config}
@@ -282,7 +366,7 @@ class SplitYamlProvider(YamlProvider):
         if catchall:
             # Scrub the trailing . to make filenames more sane.
             dname = desired.name[:-1]
-            filename = join(zone_dir, '${}.yaml'.format(dname))
+            filename = join(zone_dir, f'${dname}.yaml')
             self.log.debug('_apply:   writing catchall filename=%s', filename)
             with open(filename, 'w') as fh:
                 safe_dump(catchall, fh)

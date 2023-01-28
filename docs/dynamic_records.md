@@ -105,24 +105,29 @@ test:
 | port | port to check | 443 |
 | protocol | HTTP/HTTPS/TCP | HTTPS |
 
-#### Route53 Healtch Check Options
+Healthchecks can also be skipped for individual pool values. These values can be forced to always-serve or never-serve using the `status` flag.
 
-| Key  | Description | Default |
-|--|--|--|
-| measure_latency | Show latency in AWS console | true |
-| request_interval | Healthcheck interval [10\|30] seconds | 10 |
+`status` flag is optional and accepts one of three possible values, `up`/`down`/`obey`, with `obey` being the default:
 
 ```yaml
-
----
-  octodns:
-    healthcheck:
-      host: my-host-name
-      path: /dns-health-check
-      port: 443
-      protocol: HTTPS
-    route53:
-      healthcheck:
-        measure_latency: false
-        request_interval: 30
+test:
+  ...
+  dynamic:
+    pools:
+      na:
+        values:
+        - value: 1.2.3.4
+          status: down
+        - value: 2.3.4.5
+          status: up
+        - value: 3.4.5.6
+          # defaults to status: obey
+  ...
 ```
+
+Support matrix:
+* NS1 supports all 3 flag values
+* Azure DNS supports only `obey` and `down`
+* All other dynamic-capable providers only support the default `obey`
+
+See "Health Check Options" in individual provider documentation for customization support.

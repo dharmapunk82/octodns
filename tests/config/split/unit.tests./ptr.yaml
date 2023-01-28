@@ -1,5 +1,0 @@
----
-ptr:
-  ttl: 300
-  type: PTR
-  value: foo.bar.com.

@@ -2,20 +2,14 @@
 #
 #
 
-from __future__ import absolute_import, division, print_function, \
-    unicode_literals
-
 from unittest import TestCase
 
 from octodns.equality import EqualityTupleMixin
 
 
 class TestEqualityTupleMixin(TestCase):
-
     def test_basics(self):
-
         class Simple(EqualityTupleMixin):
-
             def __init__(self, a, b, c):
                 self.a = a
                 self.b = b
@@ -30,14 +24,14 @@ class TestEqualityTupleMixin(TestCase):
         doesnt = Simple(2, 3, 4)
 
         # equality
-        self.assertEquals(one, one)
-        self.assertEquals(one, same)
-        self.assertEquals(same, one)
+        self.assertEqual(one, one)
+        self.assertEqual(one, same)
+        self.assertEqual(same, one)
         # only a & c are considered
-        self.assertEquals(one, matches)
-        self.assertEquals(matches, one)
-        self.assertNotEquals(one, doesnt)
-        self.assertNotEquals(doesnt, one)
+        self.assertEqual(one, matches)
+        self.assertEqual(matches, one)
+        self.assertNotEqual(one, doesnt)
+        self.assertNotEqual(doesnt, one)
 
         # lt
         self.assertTrue(one < doesnt)
@@ -60,7 +54,6 @@ class TestEqualityTupleMixin(TestCase):
         self.assertTrue(one >= same)
 
     def test_not_implemented(self):
-
         class MissingMethod(EqualityTupleMixin):
             pass
 
